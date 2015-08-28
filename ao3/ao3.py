@@ -56,18 +56,32 @@ def parse_work(work_id):
     summary = html.find('div', class_='summary module')\
                   .find('blockquote', class_='userstuff')
     all_data['summary'] = summary.get_text()
-
-    metadata = html.find('dl', class_='stats')
-    # extract out the keys for metadata, such as 'Kudos'
+    metadata = html.find('dl', class_='work meta group')
+    # extract out the keys for metadata, such as 'Kudos' 
     keys = list()
     for node in metadata.findAll('dt'):
-        keys.append(','.join(node.findAll(text=True)))
-
-    # extract out the values for metadata, e.g. the actual number of kudos-es
+        keys.append(','.join(node.findAll(text=True)).strip())
     values = list()
     for node in metadata.findAll('dd'):
-        values.append(','.join(node.findAll(text=True)))
+        if 'language' in node["class"] or 'series' in node["class"]:
+            values.append(','.join(node.findAll(text=True)).strip())
+        else:
+            values.append([subnode.get_text() for subnode in node.findAll("li")])
     all_data.update(zip(keys, values))
+    
+    #add in the 'stats' metadata 
+
+    metadata = html.find('dl', class_='stats')
+    for node in metadata.findAll('dt'):
+        keys.append(','.join(node.findAll(text=True)))
+    for node in metadata.findAll('dd'):
+        values.append(','.join(node.findAll(text=True)).strip())
+
+    all_data.update(zip(keys, values))
+
+    all_data.pop("Stats:")
+
+
 
     # extract out the actual text - handles single chapters only
     chapters = dict()
