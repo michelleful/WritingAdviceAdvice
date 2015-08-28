@@ -37,57 +37,55 @@ def get_work(work_id):
 
 
 def parse_work(work_id):
-    print "Parsing work_id %s" % work_id
+    print "LOG: Parsing work_id %s" % work_id
 
     html = BeautifulSoup(get_work(work_id))
     all_data = dict()
 
     # extract title of entire fic
     title = html.find('h2', class_='title heading')
-    all_data['title'] = title.get_text()
+    all_data['Title'] = title.get_text().strip()
 
     # extract author(s) of entire fic
     authors = html.findAll('a', class_='login author')
-    all_data['authors'] = [author.get_text() for author in authors]
+    all_data['Authors'] = [author.get_text() for author in authors]
 
     # extract summary of entire fic (useful because it's what people see
     # on the works index, could be decisive in picking whether to read
     # a certain fic)
     summary = html.find('div', class_='summary module')\
                   .find('blockquote', class_='userstuff')
-    all_data['summary'] = summary.get_text()
+    all_data['Summary'] = summary.get_text()
     metadata = html.find('dl', class_='work meta group')
-    # extract out the keys for metadata, such as 'Kudos' 
+
+    # extract out the keys for metadata, such as 'Kudos'
     keys = list()
     for node in metadata.findAll('dt'):
-        keys.append(','.join(node.findAll(text=True)).strip())
+        keys.append(node.get_text().strip())
     values = list()
     for node in metadata.findAll('dd'):
-        if 'language' in node["class"] or 'series' in node["class"]:
+        if 'language' in node['class'] or 'series' in node['class']:
             values.append(','.join(node.findAll(text=True)).strip())
         else:
-            values.append([subnode.get_text() for subnode in node.findAll("li")])
+            values.append([subnode.get_text() for subnode in node.findAll('li')])
     all_data.update(zip(keys, values))
-    
-    #add in the 'stats' metadata 
+
+    # add in the 'stats' metadata
 
     metadata = html.find('dl', class_='stats')
     for node in metadata.findAll('dt'):
-        keys.append(','.join(node.findAll(text=True)))
+        keys.append(node.get_text())
     for node in metadata.findAll('dd'):
         values.append(','.join(node.findAll(text=True)).strip())
 
     all_data.update(zip(keys, values))
-
-    all_data.pop("Stats:")
-
-
+    all_data.pop('Stats:')
 
     # extract out the actual text - handles single chapters only
     chapters = dict()
     for i, chapter_node in enumerate(html.findAll('div', class_='userstuff')):
         chapters[i+1] = chapter_node.get_text()
-    all_data['text'] = chapters
+    all_data['Text'] = chapters
 
     return all_data
 
