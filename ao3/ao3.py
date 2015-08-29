@@ -1,7 +1,11 @@
+"""
+Downloads data for all publicly-available fics in a given fandom
+from archiveofourown.org (AO3) and exports it to structured JSON form
+"""
+
 import requests
 import codecs
 from bs4 import BeautifulSoup
-from collections import OrderedDict
 import json
 
 AO3_BASE_URL = 'http://archiveofourown.org/'
@@ -10,6 +14,9 @@ CONSTRUCTED_URL = AO3_BASE_URL + 'tags/' + FANDOM + '/works'
 
 
 def get_last_page_number():
+    """
+    Find out how many pages there are in the fic listing for the entire fandom
+    """
     # first get the first page and count how many pages there are
     first_page = CONSTRUCTED_URL
     r = requests.get(first_page)
@@ -21,6 +28,9 @@ def get_last_page_number():
 
 
 def get_links_on_page(page_number):
+    """
+    From a particular page in the fic listing, get links to the fics
+    """
     url = CONSTRUCTED_URL + '?page=%s' % page_number
     r = requests.get(url)
 
@@ -31,12 +41,23 @@ def get_links_on_page(page_number):
 
 
 def get_work(work_id):
-    url = AO3_BASE_URL + 'works/' + work_id + '?view_adult=true&view_full_work=true'
+    """
+    Download the html page for a particular fic for later processing
+    """
+    url = AO3_BASE_URL + 'works/' + work_id \
+          + '?view_adult=true&view_full_work=true'
     r = requests.get(url)
     return r.text
 
 
 def parse_work(work_id):
+    """
+    Parse the html page for a particular fic, extracting out:
+    - title
+    - author(s)
+    - metadata (in the box at the top of each AO3 fic)
+    - chapter text
+    """
     print "LOG: Parsing work_id %s" % work_id
 
     html = BeautifulSoup(get_work(work_id))
@@ -59,42 +80,44 @@ def parse_work(work_id):
     metadata = html.find('dl', class_='work meta group')
 
     # extract out the keys for metadata, such as 'Kudos'
-    keys = list()
-    for node in metadata.findAll('dt'):
-        keys.append(node.get_text().strip())
+    keys = [node.get_text().strip() for node in metadata.findAll('dt')]
+    # extract out the actual values for the metadata
     values = list()
     for node in metadata.findAll('dd'):
+        # handle things that aren't lists like languages and series name
         if 'language' in node['class'] or 'series' in node['class']:
-            values.append(','.join(node.findAll(text=True)).strip())
+            values.append(node.get_text().strip())
+        # differently from those that are lists
         else:
-            values.append([subnode.get_text() for subnode in node.findAll('li')])
+            values.append([subnode.get_text().strip()
+                           for subnode in node.findAll('li')])
     all_data.update(zip(keys, values))
 
-    # add in the 'stats' metadata
-
+    # add in the 'stats' metadata, which are embedded in
+    # another definition list (dl)
     metadata = html.find('dl', class_='stats')
-    for node in metadata.findAll('dt'):
-        keys.append(node.get_text())
-    for node in metadata.findAll('dd'):
-        values.append(','.join(node.findAll(text=True)).strip())
-
+    keys   = [node.get_text().strip() for node in metadata.findAll('dt')]
+    values = [node.get_text().strip() for node in metadata.findAll('dd')]
     all_data.update(zip(keys, values))
     all_data.pop('Stats:')
 
-    # extract out the actual text - handles single chapters only
+    # extract out the actual text
     chapters = dict()
     for i, chapter_node in enumerate(html.findAll('div', class_='userstuff')):
-        chapters[i+1] = chapter_node.get_text()
+        chapters[i+1] = chapter_node.get_text().strip()
     all_data['Text'] = chapters
 
     return all_data
 
 
 def download_fandom():
+    """
+    Download all fics for a particular fandom and dump the result to JSON
+    """
     last_page_number = get_last_page_number()
-    last_page_number = 1  # DEBUG - remove this line to get all
+    last_page_number = 1  # DEBUG - remove this line to get all fics in fandom
 
-    all_data = OrderedDict()
+    all_data = dict()
     for i in range(1, last_page_number + 1):
         work_ids = get_links_on_page(i)
         for work_id in work_ids:
