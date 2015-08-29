@@ -127,7 +127,8 @@ def parse_work(work_id):
     # extract out the actual text
     chapters = dict()
     for i, chapter_node in enumerate(html.findAll('div', class_='userstuff')):
-        chapters[i+1] = html2markdown(str(chapter_node))
+        chapters[i+1] = html2markdown(str(chapter_node))\
+                            .replace('### Chapter Text\n\n', '')
     all_data['Text'] = chapters
 
     return all_data
@@ -142,9 +143,8 @@ def download_fandom():
 
     all_data = dict()
     for i in range(1, last_page_number + 1):
-#        work_ids = get_links_on_page(i)
-#        for work_id in work_ids:
-        for work_id in ['1605449']:
+        work_ids = get_links_on_page(i)
+        for work_id in work_ids:
             all_data[work_id] = parse_work(work_id)
 
     with open(FANDOM + '.json', 'w') as f:
