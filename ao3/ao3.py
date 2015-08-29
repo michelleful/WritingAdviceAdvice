@@ -4,10 +4,9 @@ from archiveofourown.org (AO3) and exports it to structured JSON form
 """
 
 import requests
-import codecs
 from bs4 import BeautifulSoup
-import json
 import html2text
+import json
 
 AO3_BASE_URL = 'http://archiveofourown.org/'
 FANDOM = 'Lewis%20(TV)'
