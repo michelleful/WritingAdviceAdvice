@@ -7,6 +7,7 @@ import requests
 import codecs
 from bs4 import BeautifulSoup
 import json
+import html2text
 
 AO3_BASE_URL = 'http://archiveofourown.org/'
 FANDOM = 'Lewis%20(TV)'
@@ -61,7 +62,15 @@ def remove_unicode(text):
                .replace(u'\u2014', '--')\
                .replace(u'\u2026', '...')\
                .replace(u'\u201C', '"')\
-               .replace(u'\u201D', '"')
+               .replace(u'\u201D', '"')\
+               .replace(u'\u00A0', '')
+
+
+def html2markdown(text):
+    """
+    Convert html text to markdown and replace special unicode characters
+    """
+    return remove_unicode(html2text.html2text(text.decode('utf-8')))
 
 
 def parse_work(work_id):
@@ -90,7 +99,7 @@ def parse_work(work_id):
     # a certain fic)
     summary = html.find('div', class_='summary module')\
                   .find('blockquote', class_='userstuff')
-    all_data['Summary'] = remove_unicode(summary.get_text())
+    all_data['Summary'] = html2markdown(str(summary))
     metadata = html.find('dl', class_='work meta group')
 
     # extract out the keys for metadata, such as 'Kudos'
@@ -118,7 +127,7 @@ def parse_work(work_id):
     # extract out the actual text
     chapters = dict()
     for i, chapter_node in enumerate(html.findAll('div', class_='userstuff')):
-        chapters[i+1] = remove_unicode(chapter_node.get_text().strip())
+        chapters[i+1] = html2markdown(str(chapter_node))
     all_data['Text'] = chapters
 
     return all_data
@@ -133,8 +142,9 @@ def download_fandom():
 
     all_data = dict()
     for i in range(1, last_page_number + 1):
-        work_ids = get_links_on_page(i)
-        for work_id in work_ids:
+#        work_ids = get_links_on_page(i)
+#        for work_id in work_ids:
+        for work_id in ['1605449']:
             all_data[work_id] = parse_work(work_id)
 
     with open(FANDOM + '.json', 'w') as f:
