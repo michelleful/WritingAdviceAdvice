@@ -50,6 +50,20 @@ def get_work(work_id):
     return r.text
 
 
+def remove_unicode(text):
+    """
+    Remove things like smart quotes from text/summary
+    """
+    # set(['u2019', 'u2018', 'u2013', 'u2014', 'u2026'])
+    return text.replace(u'\u2019', "'")\
+               .replace(u'\u2018', "'")\
+               .replace(u'\u2013', '-')\
+               .replace(u'\u2014', '--')\
+               .replace(u'\u2026', '...')\
+               .replace(u'\u201C', '"')\
+               .replace(u'\u201D', '"')
+
+
 def parse_work(work_id):
     """
     Parse the html page for a particular fic, extracting out:
@@ -76,7 +90,7 @@ def parse_work(work_id):
     # a certain fic)
     summary = html.find('div', class_='summary module')\
                   .find('blockquote', class_='userstuff')
-    all_data['Summary'] = summary.get_text()
+    all_data['Summary'] = remove_unicode(summary.get_text())
     metadata = html.find('dl', class_='work meta group')
 
     # extract out the keys for metadata, such as 'Kudos'
@@ -104,7 +118,7 @@ def parse_work(work_id):
     # extract out the actual text
     chapters = dict()
     for i, chapter_node in enumerate(html.findAll('div', class_='userstuff')):
-        chapters[i+1] = chapter_node.get_text().strip()
+        chapters[i+1] = remove_unicode(chapter_node.get_text().strip())
     all_data['Text'] = chapters
 
     return all_data
