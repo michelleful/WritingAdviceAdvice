@@ -102,14 +102,15 @@ def parse_work(work_id):
     metadata = html.find('dl', class_='work meta group')
 
     # extract out the keys for metadata, such as 'Kudos'
-    keys = [node.get_text().strip() for node in metadata.findAll('dt')]
+    keys = [node.get_text().replace(':', '').strip()
+                for node in metadata.findAll('dt')]
     # extract out the actual values for the metadata
     values = list()
     for node in metadata.findAll('dd'):
         # handle things that aren't lists like languages and series name
         if 'language' in node['class'] or 'series' in node['class']:
             values.append(node.get_text().strip())
-        # differently from those that are lists
+        # handle things that are in lists, which is everything else
         else:
             values.append([subnode.get_text().strip()
                            for subnode in node.findAll('li')])
@@ -118,12 +119,14 @@ def parse_work(work_id):
     # add in the 'stats' metadata, which are embedded in
     # another definition list (dl)
     metadata = html.find('dl', class_='stats')
-    keys   = [node.get_text().strip() for node in metadata.findAll('dt')]
+    keys   = [node.get_text().replace(':', '').strip()
+                for node in metadata.findAll('dt')]
     values = [node.get_text().strip() for node in metadata.findAll('dd')]
     all_data.update(zip(keys, values))
-    all_data.pop('Stats:')
+    all_data.pop('Stats')
 
-    # extract out the actual text
+    # extract out the actual text, convert to markdown
+    # remove the words 'Chapter Text' from the beginning of each chapter
     chapters = dict()
     for i, chapter_node in enumerate(html.findAll('div', class_='userstuff')):
         chapters[i+1] = html2markdown(str(chapter_node))\
