@@ -8,8 +8,8 @@ from bs4 import BeautifulSoup
 import html2text
 import json
 
+from config import FANDOM
 AO3_BASE_URL = 'http://archiveofourown.org/'
-FANDOM = 'Lewis%20(TV)'
 CONSTRUCTED_URL = AO3_BASE_URL + 'tags/' + FANDOM + '/works'
 
 
