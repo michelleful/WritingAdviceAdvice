@@ -27,8 +27,8 @@ COMPLETE = True  # doesn't matter if SINGLE_CHAPTER is set to True
 
 # kudos/comments/views tend to come in quickly initially and then level off
 # in order to capture the kudos count in its stable state, only consider
-# fics older than a certain length
-OLDER_THAN = 6 * 30  # in days
+# fics older than a certain number of days
+MINIMUM_AGE = 6 * 30  # in days
 
 # Note: something we're not accounting for - if people search by kudos,
 # they will tend to read the fics that are at the top - a 'rich get richer'
