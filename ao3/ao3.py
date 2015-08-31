@@ -62,7 +62,9 @@ def remove_unicode(text):
                .replace(u'\u2026', '...')\
                .replace(u'\u201C', '"')\
                .replace(u'\u201D', '"')\
-               .replace(u'\u00A0', '')
+               .replace(u'\u00A0', '')\
+               .replace(u'\u00AB', '')\
+               .replace(u'\u00BB', '')
 
 
 def html2markdown(text):
@@ -87,43 +89,39 @@ def parse_work(work_id):
 
     # extract title of entire fic
     title = html.find('h2', class_='title heading')
-    all_data['Title'] = title.get_text().strip()
+    all_data['title'] = title.get_text().strip()
 
     # extract author(s) of entire fic
     authors = html.findAll('a', class_='login author')
-    all_data['Authors'] = [author.get_text() for author in authors]
+    all_data['author'] = [author.get_text() for author in authors]
 
     # extract summary of entire fic (useful because it's what people see
     # on the works index, could be decisive in picking whether to read
     # a certain fic)
     summary = html.find('div', class_='summary module')\
                   .find('blockquote', class_='userstuff')
-    all_data['Summary'] = html2markdown(str(summary))
+    all_data['summary'] = html2markdown(str(summary))
     metadata = html.find('dl', class_='work meta group')
 
-    # extract out the keys for metadata, such as 'Kudos'
-    keys = [node.get_text().replace(':', '').strip()
-                for node in metadata.findAll('dt')]
-    # extract out the actual values for the metadata
-    values = list()
+    # extract out the keys and values of metadata, such as 'Fandoms'
     for node in metadata.findAll('dd'):
+        key = [class_ for class_ in node['class'] if class_ != 'tags'][0]
         # handle things that aren't lists like languages and series name
         if 'language' in node['class'] or 'series' in node['class']:
-            values.append(node.get_text().strip())
+            all_data[key] = remove_unicode(node.get_text().strip())
         # handle things that are in lists, which is everything else
         else:
-            values.append([subnode.get_text().strip()
-                           for subnode in node.findAll('li')])
-    all_data.update(zip(keys, values))
+            all_data[key] = [subnode.get_text().strip()
+                               for subnode in node.findAll('li')]
 
     # add in the 'stats' metadata, which are embedded in
     # another definition list (dl)
     metadata = html.find('dl', class_='stats')
-    keys   = [node.get_text().replace(':', '').strip()
+    keys   = [node['class'][0]
                 for node in metadata.findAll('dt')]
     values = [node.get_text().strip() for node in metadata.findAll('dd')]
     all_data.update(zip(keys, values))
-    all_data.pop('Stats')
+    all_data.pop('stats')
 
     # extract out the actual text, convert to markdown
     # remove the words 'Chapter Text' from the beginning of each chapter
@@ -131,7 +129,7 @@ def parse_work(work_id):
     for i, chapter_node in enumerate(html.findAll('div', class_='userstuff')):
         chapters[i+1] = html2markdown(str(chapter_node))\
                             .replace('### Chapter Text\n\n', '')
-    all_data['Text'] = chapters
+    all_data['text'] = chapters
 
     return all_data
 
