@@ -3,6 +3,7 @@ Downloads data for all publicly-available fics in a given fandom
 from archiveofourown.org (AO3) and exports it to structured JSON form
 """
 
+import os
 import requests
 from bs4 import BeautifulSoup
 import html2text
@@ -11,15 +12,14 @@ import json
 from config import FANDOM
 AO3_BASE_URL = 'http://archiveofourown.org/'
 CONSTRUCTED_URL = AO3_BASE_URL + 'tags/' + FANDOM + '/works'
-
+FINAL_OUTPUT_FILENAME = FANDOM + '.json'
 
 def get_last_page_number():
     """
     Find out how many pages there are in the fic listing for the entire fandom
     """
     # first get the first page and count how many pages there are
-    first_page = CONSTRUCTED_URL
-    r = requests.get(first_page)
+    r = requests.get(CONSTRUCTED_URL)
 
     # parse the text with BeautifulSoup to obtain the last page number
     soup = BeautifulSoup(r.text)
@@ -27,9 +27,9 @@ def get_last_page_number():
     return pagination.find_all('a')[-2].text
 
 
-def get_links_on_page(page_number):
+def get_work_ids_on_page(page_number):
     """
-    From a particular page in the fic listing, get links to the fics
+    From a particular page in the fic listing, get all the work ids on that page
     """
     url = CONSTRUCTED_URL + '?page=%s' % page_number
     r = requests.get(url)
@@ -38,6 +38,20 @@ def get_links_on_page(page_number):
     soup = BeautifulSoup(r.text)
     links = soup.find_all('li', class_='work blurb group')
     return [link['id'].split('_')[1] for link in links]
+
+
+def get_all_work_ids():
+    """
+    Gets all the work ids in the given fandom
+    """
+    last_page_number = get_last_page_number()
+    last_page_number = 1  # DEBUG - remove this line to get all fics in fandom
+
+    all_work_ids = list()
+    for i in range(1, last_page_number + 1):
+        all_work_ids.extend(get_work_ids_on_page(i))
+
+    return all_work_ids
 
 
 def get_work(work_id):
@@ -82,7 +96,7 @@ def parse_work(work_id):
     - metadata (in the box at the top of each AO3 fic)
     - chapter text
     """
-    print "LOG: Parsing work_id %s" % work_id
+    print "INFO: Parsing work_id %s" % work_id
 
     html = BeautifulSoup(get_work(work_id))
     all_data = dict()
@@ -138,16 +152,12 @@ def download_fandom():
     """
     Download all fics for a particular fandom and dump the result to JSON
     """
-    last_page_number = get_last_page_number()
-    last_page_number = 1  # DEBUG - remove this line to get all fics in fandom
-
     all_data = dict()
-    for i in range(1, last_page_number + 1):
-        work_ids = get_links_on_page(i)
-        for work_id in work_ids:
-            all_data[work_id] = parse_work(work_id)
+    all_work_ids = get_all_work_ids()
+    for work_id in all_work_ids:
+        all_data[work_id] = parse_work(work_id)
 
-    with open(FANDOM + '.json', 'w') as f:
+    with open(FINAL_OUTPUT_FILENAME, 'w') as f:
         f.write(json.dumps(all_data))
 
 
