@@ -13,7 +13,7 @@ from config import FANDOM
 AO3_BASE_URL = 'http://archiveofourown.org/'
 CONSTRUCTED_URL = AO3_BASE_URL + 'tags/' + FANDOM + '/works'
 FINAL_OUTPUT_FILENAME = FANDOM + '.json'
-TEMP_OUTPUT_FILENAME  = FANDOM + '.temp.json'
+TEMP_OUTPUT_FILENAME = FANDOM + '.temp.json'
 OUTPUT_TO_TEMP_FILE_INTERVAL = 100
 
 
@@ -32,7 +32,8 @@ def get_last_page_number():
 
 def get_work_ids_on_page(page_number):
     """
-    From a particular page in the work listing, get all the work ids on that page
+    From a particular page in the work listing,
+    get all the work ids on that page
     """
     url = CONSTRUCTED_URL + '?page=%s' % page_number
     r = requests.get(url)
@@ -62,7 +63,7 @@ def get_work(work_id):
     Download the html page for a particular work for later processing
     """
     url = AO3_BASE_URL + 'works/' + work_id \
-          + '?view_adult=true&view_full_work=true'
+        + '?view_adult=true&view_full_work=true'
     r = requests.get(url)
     return r.text
 
@@ -129,13 +130,13 @@ def parse_work(work_id):
         # handle things that are in lists, which is everything else
         else:
             all_data[key] = [subnode.get_text().strip()
-                               for subnode in node.findAll('li')]
+                             for subnode in node.findAll('li')]
 
     # add in the 'stats' metadata, which are embedded in
     # another definition list (dl)
     metadata = html.find('dl', class_='stats')
-    keys   = [node['class'][0]
-                for node in metadata.findAll('dt')]
+    keys = [node['class'][0]
+            for node in metadata.findAll('dt')]
     values = [node.get_text().strip() for node in metadata.findAll('dd')]
     all_data.update(zip(keys, values))
     all_data.pop('stats')
@@ -145,7 +146,7 @@ def parse_work(work_id):
     chapters = dict()
     for i, chapter_node in enumerate(html.findAll('div', class_='userstuff')):
         chapters[i+1] = html2markdown(str(chapter_node))\
-                            .replace('### Chapter Text\n\n', '')
+                        .replace('### Chapter Text\n\n', '')
     all_data['text'] = chapters
 
     return all_data
@@ -161,14 +162,14 @@ def download_fandom():
     # check if there's an existing output file
     if os.path.isfile(FINAL_OUTPUT_FILENAME):
         overwrite = raw_input('Completely overwrite %s? [y/n]  ' %
-                                            FINAL_OUTPUT_FILENAME)
+                              FINAL_OUTPUT_FILENAME)
         if not overwrite.lower().startswith('y'):
             print('INFO: not overwriting output file %s, exiting' %
-                                            FINAL_OUTPUT_FILENAME)
+                  FINAL_OUTPUT_FILENAME)
             return
         else:
             print('INFO: overwriting %s and starting from scratch' %
-                                            FINAL_OUTPUT_FILENAME)
+                  FINAL_OUTPUT_FILENAME)
             start_from_scratch = True
 
     # get a fresh list of all the work ids in this fandom
@@ -184,7 +185,7 @@ def download_fandom():
             all_data = json.load(f)
         print('INFO: found records of %s works' % len(all_data))
         print('INFO: starting to download another %s works' %
-                (len(all_work_ids) - len(all_data)))
+              (len(all_work_ids) - len(all_data)))
     else:
         # otherwise, we'll start from scratch
         all_data = dict()
@@ -199,13 +200,12 @@ def download_fandom():
                 unrecorded_works += 1
             except Exception as exception:
                 print('ERROR: on work_id %s, %s. Arguments: %s' %
-                        (work_id, type(exception).__name__, exception.args))
+                      (work_id, type(exception).__name__, exception.args))
 
             if unrecorded_works % OUTPUT_TO_TEMP_FILE_INTERVAL == 0:
                 # every N works, write out to temp file
                 print('INFO: writing data on %s works of %s to temp file %s' %
-                        (len(all_data), len(all_work_ids),
-                         TEMP_OUTPUT_FILENAME))
+                      (len(all_data), len(all_work_ids), TEMP_OUTPUT_FILENAME))
                 with open(TEMP_OUTPUT_FILENAME, 'w') as f:
                     f.write(json.dumps(all_data))
                 # reset counter to 0
@@ -216,7 +216,7 @@ def download_fandom():
     with open(FINAL_OUTPUT_FILENAME, 'w') as f:
         f.write(json.dumps(all_data))
     print('INFO: wrote data on %s works to final file %s' %
-            (len(all_data), FINAL_OUTPUT_FILENAME))
+          (len(all_data), FINAL_OUTPUT_FILENAME))
 
     # remove the temp file
     if os.path.isfile(TEMP_OUTPUT_FILENAME):
