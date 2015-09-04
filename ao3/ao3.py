@@ -1,5 +1,5 @@
 """
-Downloads data for all publicly-available fics in a given fandom
+Downloads data for all publicly-available works in a given fandom
 from archiveofourown.org (AO3) and exports it to structured JSON form
 """
 
@@ -13,10 +13,13 @@ from config import FANDOM
 AO3_BASE_URL = 'http://archiveofourown.org/'
 CONSTRUCTED_URL = AO3_BASE_URL + 'tags/' + FANDOM + '/works'
 FINAL_OUTPUT_FILENAME = FANDOM + '.json'
+TEMP_OUTPUT_FILENAME  = FANDOM + '.temp.json'
+OUTPUT_TO_TEMP_FILE_INTERVAL = 100
+
 
 def get_last_page_number():
     """
-    Find out how many pages there are in the fic listing for the entire fandom
+    Find out how many pages there are in the work listing for the entire fandom
     """
     # first get the first page and count how many pages there are
     r = requests.get(CONSTRUCTED_URL)
@@ -29,12 +32,12 @@ def get_last_page_number():
 
 def get_work_ids_on_page(page_number):
     """
-    From a particular page in the fic listing, get all the work ids on that page
+    From a particular page in the work listing, get all the work ids on that page
     """
     url = CONSTRUCTED_URL + '?page=%s' % page_number
     r = requests.get(url)
 
-    # get the list of links to fics on this page
+    # get the list of links to works on this page
     soup = BeautifulSoup(r.text)
     links = soup.find_all('li', class_='work blurb group')
     return [link['id'].split('_')[1] for link in links]
@@ -45,7 +48,7 @@ def get_all_work_ids():
     Gets all the work ids in the given fandom
     """
     last_page_number = get_last_page_number()
-    last_page_number = 1  # DEBUG - remove this line to get all fics in fandom
+    last_page_number = 1  # DEBUG - remove this line to get all works in fandom
 
     all_work_ids = list()
     for i in range(1, last_page_number + 1):
@@ -56,7 +59,7 @@ def get_all_work_ids():
 
 def get_work(work_id):
     """
-    Download the html page for a particular fic for later processing
+    Download the html page for a particular work for later processing
     """
     url = AO3_BASE_URL + 'works/' + work_id \
           + '?view_adult=true&view_full_work=true'
@@ -90,10 +93,10 @@ def html2markdown(text):
 
 def parse_work(work_id):
     """
-    Parse the html page for a particular fic, extracting out:
+    Parse the html page for a particular work, extracting out:
     - title
     - author(s)
-    - metadata (in the box at the top of each AO3 fic)
+    - metadata (in the box at the top of each AO3 work)
     - chapter text
     """
     print "INFO: Parsing work_id %s" % work_id
@@ -101,17 +104,17 @@ def parse_work(work_id):
     html = BeautifulSoup(get_work(work_id))
     all_data = dict()
 
-    # extract title of entire fic
+    # extract title of entire work
     title = html.find('h2', class_='title heading')
     all_data['title'] = title.get_text().strip()
 
-    # extract author(s) of entire fic
+    # extract author(s) of entire work
     authors = html.findAll('a', class_='login author')
     all_data['author'] = [author.get_text() for author in authors]
 
-    # extract summary of entire fic (useful because it's what people see
+    # extract summary of entire work (useful because it's what people see
     # on the works index, could be decisive in picking whether to read
-    # a certain fic)
+    # a certain work)
     summary = html.find('div', class_='summary module')\
                   .find('blockquote', class_='userstuff')
     all_data['summary'] = html2markdown(str(summary))
@@ -150,15 +153,75 @@ def parse_work(work_id):
 
 def download_fandom():
     """
-    Download all fics for a particular fandom and dump the result to JSON
+    Download all works for a particular fandom and dump the result to JSON
+    Resume from a previous temp file if a previous run failed while
+    downloading a work.
     """
-    all_data = dict()
-    all_work_ids = get_all_work_ids()
-    for work_id in all_work_ids:
-        all_data[work_id] = parse_work(work_id)
+    start_from_scratch = False
+    # check if there's an existing output file
+    if os.path.isfile(FINAL_OUTPUT_FILENAME):
+        overwrite = raw_input('Completely overwrite %s? [y/n]  ' %
+                                            FINAL_OUTPUT_FILENAME)
+        if not overwrite.lower().startswith('y'):
+            print('INFO: not overwriting output file %s, exiting' %
+                                            FINAL_OUTPUT_FILENAME)
+            return
+        else:
+            print('INFO: overwriting %s and starting from scratch' %
+                                            FINAL_OUTPUT_FILENAME)
+            start_from_scratch = True
 
+    # get a fresh list of all the work ids in this fandom
+    all_work_ids = get_all_work_ids()
+
+    # if we're not starting from scratch,
+    # check if there's an existing temp output file
+    # TODO: check that it's not TOO stale, if it is
+    if not start_from_scratch and os.path.isfile(TEMP_OUTPUT_FILENAME):
+        print 'INFO: resuming from %s' % TEMP_OUTPUT_FILENAME
+        # if there is one, then we'll start from there
+        with open(TEMP_OUTPUT_FILENAME, 'r') as f:
+            all_data = json.load(f)
+        print('INFO: found records of %s works' % len(all_data))
+        print('INFO: starting to download another %s works' %
+                (len(all_work_ids) - len(all_data)))
+    else:
+        # otherwise, we'll start from scratch
+        all_data = dict()
+        print('INFO: starting to download %s works' % len(all_work_ids))
+
+    # process all the work ids we just obtained
+    unrecorded_works = 0
+    for work_id in all_work_ids:
+        if work_id not in all_data.keys():
+            try:
+                all_data[work_id] = parse_work(work_id)
+                unrecorded_works += 1
+            except Exception as exception:
+                print('ERROR: on work_id %s, %s. Arguments: %s' %
+                        (work_id, type(exception).__name__, exception.args))
+
+            if unrecorded_works % OUTPUT_TO_TEMP_FILE_INTERVAL == 0:
+                # every N works, write out to temp file
+                print('INFO: writing data on %s works of %s to temp file %s' %
+                        (len(all_data), len(all_work_ids),
+                         TEMP_OUTPUT_FILENAME))
+                with open(TEMP_OUTPUT_FILENAME, 'w') as f:
+                    f.write(json.dumps(all_data))
+                # reset counter to 0
+                unrecorded_works = 0
+
+    # if we got here, that means we successfully downloaded everything
+    # there was to download
     with open(FINAL_OUTPUT_FILENAME, 'w') as f:
         f.write(json.dumps(all_data))
+    print('INFO: wrote data on %s works to final file %s' %
+            (len(all_data), FINAL_OUTPUT_FILENAME))
+
+    # remove the temp file
+    if os.path.isfile(TEMP_OUTPUT_FILENAME):
+        os.remove(TEMP_OUTPUT_FILENAME)
+    print('INFO: deleted temp file' % len(all_data))
 
 
 download_fandom()
