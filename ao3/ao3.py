@@ -4,6 +4,7 @@ from archiveofourown.org (AO3) and exports it to structured JSON form
 """
 
 import os
+import time
 import requests
 from bs4 import BeautifulSoup
 import html2text
@@ -100,7 +101,7 @@ def parse_work(work_id):
     - metadata (in the box at the top of each AO3 work)
     - chapter text
     """
-    print "INFO: Parsing work_id %s" % work_id
+    print('INFO: Parsing work_id %s' % work_id)
 
     html = BeautifulSoup(get_work(work_id))
     all_data = dict()
@@ -177,9 +178,18 @@ def download_fandom():
 
     # if we're not starting from scratch,
     # check if there's an existing temp output file
-    # TODO: check that it's not TOO stale, if it is
     if not start_from_scratch and os.path.isfile(TEMP_OUTPUT_FILENAME):
-        print 'INFO: resuming from %s' % TEMP_OUTPUT_FILENAME
+
+        # get age of temp file and issue warning of it's really long ago
+        last_modified_time = os.path.getmtime(TEMP_OUTPUT_FILENAME)
+        # if the age of the file is older than 12 hours, say, issue a warning
+        # and allow user to decide whether to stop the process
+        # and delete the file
+        if time.time() - last_modified_time > 60 * 60 * 12:
+            print('WARNING: temp file may be stale. Last modified %s' %
+                    time.ctime(os.path.getmtime(TEMP_OUTPUT_FILENAME)))
+
+        print('INFO: resuming from %s' % TEMP_OUTPUT_FILENAME)
         # if there is one, then we'll start from there
         with open(TEMP_OUTPUT_FILENAME, 'r') as f:
             all_data = json.load(f)
@@ -221,7 +231,7 @@ def download_fandom():
     # remove the temp file
     if os.path.isfile(TEMP_OUTPUT_FILENAME):
         os.remove(TEMP_OUTPUT_FILENAME)
-    print('INFO: deleted temp file' % len(all_data))
+    print('INFO: deleted temp file')
 
 
 download_fandom()
