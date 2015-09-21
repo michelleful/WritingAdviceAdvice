@@ -10,7 +10,7 @@ from bs4 import BeautifulSoup
 import html2text
 import json
 
-from config import FANDOM
+from config import FANDOM, MAX_PAGES
 AO3_BASE_URL = 'http://archiveofourown.org/'
 CONSTRUCTED_URL = AO3_BASE_URL + 'tags/' + FANDOM + '/works'
 FINAL_OUTPUT_FILENAME = FANDOM + '.json'
@@ -50,7 +50,10 @@ def get_all_work_ids():
     Gets all the work ids in the given fandom
     """
     last_page_number = get_last_page_number()
-    last_page_number = 1  # DEBUG - remove this line to get all works in fandom
+    # if MAX_PAGES is supplied, and it's less than the last page number
+    # use MAX_PAGES instead
+    if MAX_PAGES and MAX_PAGES < last_page_number:
+        last_page_number = MAX_PAGES
 
     all_work_ids = list()
     for i in range(1, last_page_number + 1):
