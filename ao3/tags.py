@@ -70,12 +70,12 @@ if os.path.isfile('canonical_tags.json'):
         f = open('canonical_tags.json', 'r')
     except IOError:
         print 'ERROR: Found canonical_tags.json but could not open it'
-    CANONICAL_TAGS = json.loads(f.read())
+    tag_correspondences = json.loads(f.read())
     f.close()
     print 'INFO:  Starting with tag correspondences from canonical_tags.json'
 else:
     print 'INFO:  Did not find tags.json, will start tag location from scratch'
-    CANONICAL_TAGS = defaultdict(dict)
+    tag_correspondences = defaultdict(dict)
 
 
 # -----------
@@ -139,32 +139,33 @@ def get_correspondences_for_tag(tag):
     return dict([(tag, None)])
 
 
-def update_tag_correspondences(used_tags):
+def update_tag_correspondences(used_tags, tag_correspondences):
     """
-    Update dictionary of all non-canonical -> canonical tag correspondences.
-    Does not return anything but modifies CANONICAL_TAGS in place.
+    Given set of tags used in fic and a dictionary of tag correspondences,
+    returns updated dictionary of all
+    non-canonical -> canonical tag correspondences.
     """
-    tag_correspondences = defaultdict(dict)
-
     for tag_type in TAG_TYPES:
         for tag, count in sorted(used_tags[tag_type].items(),
                                  key=operator.itemgetter(1),
                                  reverse=True):
-            if tag not in CANONICAL_TAGS[tag_type]:
+            if tag not in tag_correspondences[tag_type]:
                 # if we haven't already got the info for that tag, get it and
                 # add it to the dictionary
-                CANONICAL_TAGS[tag_type].update(
+                tag_correspondences[tag_type].update(
                     get_correspondences_for_tag(tag))
 
+    return tag_correspondences
 
-def get_new_tags(old_tags, tag_type):
+
+def get_new_tags(old_tags, tag_type, tag_correspondences):
     """
     For a given fic in the form of its old_tags of a certain tag_type,
     return a new set of a tags that have been converted to their canonical
     forms. Remove any tags that convert to None or are in OMIT_TAGS,
     and uniq the set.
     """
-    new_tags = {CANONICAL_TAGS[tag_type][old_tag] for old_tag in old_tags}
+    new_tags = {tag_correspondences[tag_type][old_tag] for old_tag in old_tags}
 
     new_tags = new_tags - set(OMIT_TAGS)
     new_tags.discard(None)
@@ -179,13 +180,12 @@ def get_new_tags(old_tags, tag_type):
 # get the tags that were used in this set of fics
 used_tags = get_tags_used(fics)
 
-# update the dictionary of tag -> canonical tag (or None) correspondences,
-# CANONICAL_TAGS
-update_tag_correspondences(used_tags)
+# update the dictionary of tag -> canonical tag (or None) correspondences
+tag_correspondences = update_tag_correspondences(used_tags, tag_correspondences)
 # write out new set to file
 with open('canonical_tags.json', 'w') as f:
-    f.write(json.dumps(CANONICAL_TAGS))
-print 'INFO:  updated CANONICAL_TAGS in canonical_tags.json'
+    f.write(json.dumps(tag_correspondences))
+print 'INFO:  updated tag correspondences in canonical_tags.json'
 
 # create new 'canonical_character', 'canonical_relationship',
 # 'canonical_freeform' attributes for each fic and fill them with the
@@ -194,7 +194,7 @@ for fic_id, fic in fics.items():
     for tag_type in TAG_TYPES:
         if tag_type in fic:
             fics[fic_id]['canonical_%s_tags' % tag_type] = \
-                get_new_tags(fic[tag_type], tag_type)
+                get_new_tags(fic[tag_type], tag_type, tag_correspondences)
         else:
             fics[fic_id]['canonical_%s_tags' % tag_type] = list()
 
