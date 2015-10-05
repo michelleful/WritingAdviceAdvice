@@ -41,11 +41,6 @@ for fic_id, fic in fics.items():
     if age < MINIMUM_AGE:
         continue
 
-    # remove fics that contain 1 or more unwanted tags (specified in OMIT_TAGS)
-    if ('freeform' in fic.keys() and
-            set(OMIT_TAGS).intersection(set(fic['freeform']))):
-        continue
-
     # if it's passed all the filters
     filtered[fic_id] = fic
 
